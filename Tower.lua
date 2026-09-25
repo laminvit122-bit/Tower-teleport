@@ -1,6 +1,6 @@
 -- ============================================
--- Tower of Hell Teleport Script v12
--- Финиш = самая высокая часть в tower.finishes
+-- Tower of Hell Teleport Script v13 (ФИНАЛ)
+-- Финиш = верхняя часть tower.finishes + падение на платформу
 -- ============================================
 
 local Players = game:GetService("Players")
@@ -175,50 +175,32 @@ local function createButton(text, order, baseColor)
 end
 
 -- ============================================
--- ПОИСК: перебираем все finishes и берём самый высокий Part
+-- ПОИСК ФИНИША (верхняя часть в finishes)
 -- ============================================
 local function findFinish()
     local tower = workspace:FindFirstChild("tower")
-    if not tower then return nil, "Нет tower" end
+    if not tower then return nil end
     
     local finishes = tower:FindFirstChild("finishes")
-    if not finishes then return nil, "Нет finishes" end
+    if not finishes then return nil end
     
-    -- Перебираем ВСЕ части во ВСЕХ 16 детях finishes
-    -- (могут быть вложенные Model/папки)
     local best, bestY = nil, -math.huge
-    local foundNames = {}
-    
     for _, obj in ipairs(finishes:GetDescendants()) do
-        if obj:IsA("BasePart") then
-            table.insert(foundNames, obj.Name .. " Y=" .. math.floor(obj.Position.Y))
-            if obj.Position.Y > bestY then
-                bestY = obj.Position.Y
-                best = obj
-            end
+        if obj:IsA("BasePart") and obj.Position.Y > bestY then
+            bestY = obj.Position.Y
+            best = obj
         end
     end
-    
-    -- Пишем в чат что нашли
-    if #foundNames > 0 then
-        notify("Частей: " .. #foundNames)
-        for i = 1, math.min(5, #foundNames) do
-            notify("  " .. foundNames[i])
-        end
-    else
-        notify("❌ finish не содержит BasePart")
-    end
-    
-    return best, "finishes (верхняя)"
+    return best
 end
 
 -- ============================================
--- ТЕЛЕПОРТ
+-- ТЕЛЕПОРТ С ПАДЕНИЕМ НА ПЛАТФОРМУ
 -- ============================================
 local function teleportToFinish()
-    local finish, source = findFinish()
+    local finish = findFinish()
     if not finish then
-        notify("⚠ " .. tostring(source))
+        notify("⚠ Finish не найден")
         return false
     end
     
@@ -228,9 +210,11 @@ local function teleportToFinish()
         return false
     end
     
-    char.HumanoidRootPart.CFrame = CFrame.new(finish.Position + Vector3.new(0, 5, 0))
-    char.HumanoidRootPart.Velocity = Vector3.new(0, -20, 0)
-    notify("✅ " .. source .. " | Y=" .. math.floor(finish.Position.Y))
+    -- Телепорт ВЫШЕ финиш-зоны + сильное падение вниз
+    -- Так мы пролетим сквозь триггер и приземлимся на платформу
+    char.HumanoidRootPart.CFrame = CFrame.new(finish.Position + Vector3.new(0, 10, 0))
+    char.HumanoidRootPart.Velocity = Vector3.new(0, -150, 0)
+    notify("✅ Finish Y=" .. math.floor(finish.Position.Y))
     return true
 end
 
@@ -244,7 +228,7 @@ towerNoobBtn.MouseButton1Click:Connect(function()
         task.wait(0.6)
         towerNoobBtn.Text = "Tower Noob"
     else
-        towerNoobBtn.Text = "⚠ Проверь чат"
+        towerNoobBtn.Text = "⚠ Не найдено"
         task.wait(1.5)
         towerNoobBtn.Text = "Tower Noob"
     end
@@ -257,7 +241,7 @@ towerProBtn.MouseButton1Click:Connect(function()
         task.wait(0.6)
         towerProBtn.Text = "Tower Pro"
     else
-        towerProBtn.Text = "⚠ Проверь чат"
+        towerProBtn.Text = "⚠ Не найдено"
         task.wait(1.5)
         towerProBtn.Text = "Tower Pro"
     end
@@ -369,4 +353,4 @@ end)
 
 closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 
-notify("v12 загружен! Проверяем finishes")
+notify("v13 загружен! Финиш + падение")
