@@ -1,5 +1,6 @@
 -- ============================================
--- Tower of Hell Teleport Script v11 (с отладкой)
+-- Tower of Hell Teleport Script v12
+-- Финиш = самая высокая часть в tower.finishes
 -- ============================================
 
 local Players = game:GetService("Players")
@@ -10,7 +11,6 @@ local StarterGui = game:GetService("StarterGui")
 
 local player = Players.LocalPlayer
 
--- Функция вывода в чат
 local function notify(text)
     pcall(function()
         StarterGui:SetCore("SendNotification", {
@@ -175,112 +175,41 @@ local function createButton(text, order, baseColor)
 end
 
 -- ============================================
--- ОТЛАДКА: что вообще есть в workspace?
--- ============================================
-local function debugWorkspace()
-    notify("--- Поиск ---")
-    
-    local tower = workspace:FindFirstChild("tower")
-    if not tower then
-        notify("❌ Нет workspace.tower")
-        -- Ищем похожие имена
-        for _, obj in ipairs(workspace:GetChildren()) do
-            local n = obj.Name:lower()
-            if n:find("tower") or n:find("map") or n:find("level") then
-                notify("Похожее: " .. obj.Name)
-            end
-        end
-        return nil
-    end
-    
-    notify("✅ Нашли tower")
-    
-    -- Перечисляем детей tower
-    local names = {}
-    for _, obj in ipairs(tower:GetChildren()) do
-        table.insert(names, obj.Name)
-    end
-    notify("Дети tower: " .. table.concat(names, ", "))
-    
-    -- Проверяем center
-    local center = tower:FindFirstChild("center")
-    if center then
-        notify("✅ center: " .. tostring(center.ClassName))
-        notify("Позиция: " .. tostring(center.Position))
-    else
-        notify("❌ center НЕ найден")
-    end
-    
-    -- Проверяем top
-    local top = tower:FindFirstChild("top")
-    if top then
-        notify("✅ top: " .. tostring(top.ClassName))
-    else
-        notify("❌ top НЕ найден")
-    end
-    
-    -- Проверяем finishes
-    local finishes = tower:FindFirstChild("finishes")
-    if finishes then
-        notify("✅ finishes, детей: " .. #finishes:GetChildren())
-    else
-        notify("❌ finishes НЕ найден")
-    end
-    
-    -- Проверяем steps
-    local steps = tower:FindFirstChild("steps")
-    if steps then
-        notify("✅ steps, детей: " .. #steps:GetChildren())
-    else
-        notify("❌ steps НЕ найден")
-    end
-    
-    return tower
-end
-
--- ============================================
--- АВТОПОИСК ФИНИША
+-- ПОИСК: перебираем все finishes и берём самый высокий Part
 -- ============================================
 local function findFinish()
     local tower = workspace:FindFirstChild("tower")
-    if not tower then return nil, "Нет workspace.tower" end
+    if not tower then return nil, "Нет tower" end
     
-    -- 1) center
-    local center = tower:FindFirstChild("center")
-    if center and center:IsA("BasePart") then
-        return center, "center"
-    end
+    local finishes = tower:FindFirstChild("finishes")
+    if not finishes then return nil, "Нет finishes" end
     
-    -- 2) top
-    local top = tower:FindFirstChild("top")
-    if top and top:IsA("BasePart") then
-        return top, "top"
-    end
+    -- Перебираем ВСЕ части во ВСЕХ 16 детях finishes
+    -- (могут быть вложенные Model/папки)
+    local best, bestY = nil, -math.huge
+    local foundNames = {}
     
-    -- 3) stop в steps
-    local steps = tower:FindFirstChild("steps")
-    if steps then
-        local best, bestY = nil, -math.huge
-        for _, obj in ipairs(steps:GetChildren()) do
-            if obj.Name == "stop" and obj:IsA("BasePart") and obj.Position.Y > bestY then
+    for _, obj in ipairs(finishes:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            table.insert(foundNames, obj.Name .. " Y=" .. math.floor(obj.Position.Y))
+            if obj.Position.Y > bestY then
                 bestY = obj.Position.Y
                 best = obj
             end
         end
-        if best then return best, "steps.stop" end
     end
     
-    -- 4) stop в finishes
-    local finishes = tower:FindFirstChild("finishes")
-    if finishes then
-        for _, obj in ipairs(finishes:GetChildren()) do
-            if obj.Name == "stop" and obj:IsA("BasePart") then
-                return obj, "finishes.stop"
-            end
+    -- Пишем в чат что нашли
+    if #foundNames > 0 then
+        notify("Частей: " .. #foundNames)
+        for i = 1, math.min(5, #foundNames) do
+            notify("  " .. foundNames[i])
         end
+    else
+        notify("❌ finish не содержит BasePart")
     end
     
-    return nil, "Ничего не нашли"
+    return best, "finishes (верхняя)"
 end
 
 -- ============================================
@@ -299,11 +228,9 @@ local function teleportToFinish()
         return false
     end
     
-    -- Телепорт
     char.HumanoidRootPart.CFrame = CFrame.new(finish.Position + Vector3.new(0, 5, 0))
     char.HumanoidRootPart.Velocity = Vector3.new(0, -20, 0)
-    notify("✅ Телепорт на " .. source)
-    notify("Позиция: " .. tostring(finish.Position))
+    notify("✅ " .. source .. " | Y=" .. math.floor(finish.Position.Y))
     return true
 end
 
@@ -336,15 +263,7 @@ towerProBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-local debugBtn = createButton("🔍 Отладка", 3, Color3.fromRGB(80, 80, 120))
-debugBtn.MouseButton1Click:Connect(function()
-    debugWorkspace()
-    debugBtn.Text = "🔍 Смотри чат"
-    task.wait(1)
-    debugBtn.Text = "🔍 Отладка"
-end)
-
-local theTowerBtn = createButton("The Tower (Soon)", 4, Color3.fromRGB(200, 60, 60))
+local theTowerBtn = createButton("The Tower (Soon)", 3, Color3.fromRGB(200, 60, 60))
 theTowerBtn.MouseButton1Click:Connect(function()
     theTowerBtn.Text = "Скоро..."
     task.wait(1)
@@ -450,4 +369,4 @@ end)
 
 closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 
-notify("Скрипт загружен! Нажми 🔍 Отладка")
+notify("v12 загружен! Проверяем finishes")
