@@ -1,26 +1,13 @@
 -- ============================================
--- Tower of Hell Teleport Script v13 (ФИНАЛ)
--- Финиш = верхняя часть tower.finishes + падение на платформу
+-- Tower of Hell TP — 3 кнопки + телепорт на финиш
 -- ============================================
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
-local StarterGui = game:GetService("StarterGui")
 
 local player = Players.LocalPlayer
-
-local function notify(text)
-    pcall(function()
-        StarterGui:SetCore("SendNotification", {
-            Title = "Tower TP",
-            Text = text,
-            Duration = 3
-        })
-    end)
-    print("[Tower TP] " .. text)
-end
 
 local MAIN_W_SCALE = 0.30
 local MAIN_H_SCALE = 0.45
@@ -161,7 +148,7 @@ local function createButton(text, order, baseColor)
     btn.AutoButtonColor = false
     btn.Parent = scrollFrame
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
-    
+
     btn.MouseEnter:Connect(function()
         btn.BackgroundColor3 = Color3.new(
             math.min(baseColor.R * 1.3, 1),
@@ -170,52 +157,44 @@ local function createButton(text, order, baseColor)
         )
     end)
     btn.MouseLeave:Connect(function() btn.BackgroundColor3 = baseColor end)
-    
+
     return btn
 end
 
 -- ============================================
--- ПОИСК ФИНИША (верхняя часть в finishes)
+-- ИЩЕТ ФИНИШ: самая высокая большая платформа в tower
 -- ============================================
 local function findFinish()
     local tower = workspace:FindFirstChild("tower")
     if not tower then return nil end
-    
-    local finishes = tower:FindFirstChild("finishes")
-    if not finishes then return nil end
-    
+
     local best, bestY = nil, -math.huge
-    for _, obj in ipairs(finishes:GetDescendants()) do
-        if obj:IsA("BasePart") and obj.Position.Y > bestY then
-            bestY = obj.Position.Y
-            best = obj
+    for _, obj in ipairs(tower:GetDescendants()) do
+        if obj:IsA("BasePart")
+           and obj.Size.X >= 8
+           and obj.Size.Z >= 8
+           and obj.Transparency < 0.95
+           and obj.CanCollide then
+            if obj.Position.Y > bestY then
+                bestY = obj.Position.Y
+                best = obj
+            end
         end
     end
     return best
 end
 
--- ============================================
--- ТЕЛЕПОРТ С ПАДЕНИЕМ НА ПЛАТФОРМУ
--- ============================================
 local function teleportToFinish()
     local finish = findFinish()
-    if not finish then
-        notify("⚠ Finish не найден")
-        return false
-    end
-    
+    if not finish then return false end
+
     local char = player.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then
-        notify("⚠ Нет персонажа")
-        return false
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = CFrame.new(finish.Position + Vector3.new(0, 5, 0))
+        char.HumanoidRootPart.Velocity = Vector3.new(0, -20, 0)
+        return true
     end
-    
-    -- Телепорт ВЫШЕ финиш-зоны + сильное падение вниз
-    -- Так мы пролетим сквозь триггер и приземлимся на платформу
-    char.HumanoidRootPart.CFrame = CFrame.new(finish.Position + Vector3.new(0, 10, 0))
-    char.HumanoidRootPart.Velocity = Vector3.new(0, -150, 0)
-    notify("✅ Finish Y=" .. math.floor(finish.Position.Y))
-    return true
+    return false
 end
 
 -- ============================================
@@ -228,7 +207,7 @@ towerNoobBtn.MouseButton1Click:Connect(function()
         task.wait(0.6)
         towerNoobBtn.Text = "Tower Noob"
     else
-        towerNoobBtn.Text = "⚠ Не найдено"
+        towerNoobBtn.Text = "⚠ tower не найден"
         task.wait(1.5)
         towerNoobBtn.Text = "Tower Noob"
     end
@@ -241,7 +220,7 @@ towerProBtn.MouseButton1Click:Connect(function()
         task.wait(0.6)
         towerProBtn.Text = "Tower Pro"
     else
-        towerProBtn.Text = "⚠ Не найдено"
+        towerProBtn.Text = "⚠ tower не найден"
         task.wait(1.5)
         towerProBtn.Text = "Tower Pro"
     end
@@ -249,9 +228,15 @@ end)
 
 local theTowerBtn = createButton("The Tower (Soon)", 3, Color3.fromRGB(200, 60, 60))
 theTowerBtn.MouseButton1Click:Connect(function()
-    theTowerBtn.Text = "Скоро..."
-    task.wait(1)
-    theTowerBtn.Text = "The Tower (Soon)"
+    if teleportToFinish() then
+        theTowerBtn.Text = "✅ The Tower"
+        task.wait(0.6)
+        theTowerBtn.Text = "The Tower (Soon)"
+    else
+        theTowerBtn.Text = "⚠ tower не найден"
+        task.wait(1.5)
+        theTowerBtn.Text = "The Tower (Soon)"
+    end
 end)
 
 -- ============================================
@@ -353,4 +338,4 @@ end)
 
 closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 
-notify("v13 загружен! Финиш + падение")
+print("[Tower TP] Загружен! 3 кнопки + телепорт на финиш")
