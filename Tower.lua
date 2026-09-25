@@ -1,14 +1,26 @@
 -- ============================================
--- Tower of Hell Teleport Script v10
--- Финиш = workspace.tower.center (большая платформа 80x80)
+-- Tower of Hell Teleport Script v11 (с отладкой)
 -- ============================================
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
+local StarterGui = game:GetService("StarterGui")
 
 local player = Players.LocalPlayer
+
+-- Функция вывода в чат
+local function notify(text)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = "Tower TP",
+            Text = text,
+            Duration = 3
+        })
+    end)
+    print("[Tower TP] " .. text)
+end
 
 local MAIN_W_SCALE = 0.30
 local MAIN_H_SCALE = 0.45
@@ -163,50 +175,136 @@ local function createButton(text, order, baseColor)
 end
 
 -- ============================================
--- АВТОПОИСК ФИНИША (tower.center — большая платформа)
+-- ОТЛАДКА: что вообще есть в workspace?
 -- ============================================
-local function findFinish()
+local function debugWorkspace()
+    notify("--- Поиск ---")
+    
     local tower = workspace:FindFirstChild("tower")
-    if not tower then return nil end
-    
-    -- 1) center — большая финишная платформа 80x80
-    local center = tower:FindFirstChild("center")
-    if center and center:IsA("BasePart") then
-        return center
-    end
-    
-    -- 2) Fallback: stop в steps (самый высокий)
-    local bestStop, bestY = nil, -math.huge
-    local steps = tower:FindFirstChild("steps")
-    if steps then
-        for _, obj in ipairs(steps:GetChildren()) do
-            if obj.Name == "stop" and obj:IsA("BasePart") and obj.Position.Y > bestY then
-                bestY = obj.Position.Y
-                bestStop = obj
+    if not tower then
+        notify("❌ Нет workspace.tower")
+        -- Ищем похожие имена
+        for _, obj in ipairs(workspace:GetChildren()) do
+            local n = obj.Name:lower()
+            if n:find("tower") or n:find("map") or n:find("level") then
+                notify("Похожее: " .. obj.Name)
             end
         end
+        return nil
     end
-    if bestStop then return bestStop end
     
-    -- 3) Fallback: top
-    return tower:FindFirstChild("top")
+    notify("✅ Нашли tower")
+    
+    -- Перечисляем детей tower
+    local names = {}
+    for _, obj in ipairs(tower:GetChildren()) do
+        table.insert(names, obj.Name)
+    end
+    notify("Дети tower: " .. table.concat(names, ", "))
+    
+    -- Проверяем center
+    local center = tower:FindFirstChild("center")
+    if center then
+        notify("✅ center: " .. tostring(center.ClassName))
+        notify("Позиция: " .. tostring(center.Position))
+    else
+        notify("❌ center НЕ найден")
+    end
+    
+    -- Проверяем top
+    local top = tower:FindFirstChild("top")
+    if top then
+        notify("✅ top: " .. tostring(top.ClassName))
+    else
+        notify("❌ top НЕ найден")
+    end
+    
+    -- Проверяем finishes
+    local finishes = tower:FindFirstChild("finishes")
+    if finishes then
+        notify("✅ finishes, детей: " .. #finishes:GetChildren())
+    else
+        notify("❌ finishes НЕ найден")
+    end
+    
+    -- Проверяем steps
+    local steps = tower:FindFirstChild("steps")
+    if steps then
+        notify("✅ steps, детей: " .. #steps:GetChildren())
+    else
+        notify("❌ steps НЕ найден")
+    end
+    
+    return tower
 end
 
 -- ============================================
--- ТЕЛЕПОРТ (в центр платформы, сверху)
+-- АВТОПОИСК ФИНИША
+-- ============================================
+local function findFinish()
+    local tower = workspace:FindFirstChild("tower")
+    if not tower then return nil, "Нет workspace.tower" end
+    
+    -- 1) center
+    local center = tower:FindFirstChild("center")
+    if center and center:IsA("BasePart") then
+        return center, "center"
+    end
+    
+    -- 2) top
+    local top = tower:FindFirstChild("top")
+    if top and top:IsA("BasePart") then
+        return top, "top"
+    end
+    
+    -- 3) stop в steps
+    local steps = tower:FindFirstChild("steps")
+    if steps then
+        local best, bestY = nil, -math.huge
+        for _, obj in ipairs(steps:GetChildren()) do
+            if obj.Name == "stop" and obj:IsA("BasePart") and obj.Position.Y > bestY then
+                bestY = obj.Position.Y
+                best = obj
+            end
+        end
+        if best then return best, "steps.stop" end
+    end
+    
+    -- 4) stop в finishes
+    local finishes = tower:FindFirstChild("finishes")
+    if finishes then
+        for _, obj in ipairs(finishes:GetChildren()) do
+            if obj.Name == "stop" and obj:IsA("BasePart") then
+                return obj, "finishes.stop"
+            end
+        end
+    end
+    
+    return nil, "Ничего не нашли"
+end
+
+-- ============================================
+-- ТЕЛЕПОРТ
 -- ============================================
 local function teleportToFinish()
-    local finish = findFinish()
-    if not finish then return false end
+    local finish, source = findFinish()
+    if not finish then
+        notify("⚠ " .. tostring(source))
+        return false
+    end
     
     local char = player.Character
-    if char and char:FindFirstChild("HumanoidRootPart") then
-        -- center — большая платформа, телепорт в её центр + немного вверх
-        char.HumanoidRootPart.CFrame = CFrame.new(finish.Position + Vector3.new(0, 5, 0))
-        char.HumanoidRootPart.Velocity = Vector3.new(0, -20, 0)
-        return true
+    if not char or not char:FindFirstChild("HumanoidRootPart") then
+        notify("⚠ Нет персонажа")
+        return false
     end
-    return false
+    
+    -- Телепорт
+    char.HumanoidRootPart.CFrame = CFrame.new(finish.Position + Vector3.new(0, 5, 0))
+    char.HumanoidRootPart.Velocity = Vector3.new(0, -20, 0)
+    notify("✅ Телепорт на " .. source)
+    notify("Позиция: " .. tostring(finish.Position))
+    return true
 end
 
 -- ============================================
@@ -219,8 +317,8 @@ towerNoobBtn.MouseButton1Click:Connect(function()
         task.wait(0.6)
         towerNoobBtn.Text = "Tower Noob"
     else
-        towerNoobBtn.Text = "⚠ tower не найден"
-        task.wait(1)
+        towerNoobBtn.Text = "⚠ Проверь чат"
+        task.wait(1.5)
         towerNoobBtn.Text = "Tower Noob"
     end
 end)
@@ -232,13 +330,21 @@ towerProBtn.MouseButton1Click:Connect(function()
         task.wait(0.6)
         towerProBtn.Text = "Tower Pro"
     else
-        towerProBtn.Text = "⚠ tower не найден"
-        task.wait(1)
+        towerProBtn.Text = "⚠ Проверь чат"
+        task.wait(1.5)
         towerProBtn.Text = "Tower Pro"
     end
 end)
 
-local theTowerBtn = createButton("The Tower (Soon)", 3, Color3.fromRGB(200, 60, 60))
+local debugBtn = createButton("🔍 Отладка", 3, Color3.fromRGB(80, 80, 120))
+debugBtn.MouseButton1Click:Connect(function()
+    debugWorkspace()
+    debugBtn.Text = "🔍 Смотри чат"
+    task.wait(1)
+    debugBtn.Text = "🔍 Отладка"
+end)
+
+local theTowerBtn = createButton("The Tower (Soon)", 4, Color3.fromRGB(200, 60, 60))
 theTowerBtn.MouseButton1Click:Connect(function()
     theTowerBtn.Text = "Скоро..."
     task.wait(1)
@@ -338,10 +444,10 @@ miniImage.InputEnded:Connect(function(input)
             moved = math.abs(d.X) + math.abs(d.Y)
         end
         if moved < 10 then restoreWindow() end
-        miniClick, miniStart = nil, nil
+        miniClick, miniStart = false, nil
     end
 end)
 
 closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 
-print("[Tower TP] v10 загружен! Финиш: workspace.tower.center")
+notify("Скрипт загружен! Нажми 🔍 Отладка")
