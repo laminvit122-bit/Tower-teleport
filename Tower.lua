@@ -1,6 +1,6 @@
 -- ============================================
--- Tower of Hell Teleport Script v6
--- Автопоиск финиша через workspace.tower.top
+-- Tower of Hell Teleport Script v7
+-- Телепорт на самую высокую Finish-зону
 -- ============================================
 
 local Players = game:GetService("Players")
@@ -177,36 +177,37 @@ local function createButton(text, order, baseColor)
 end
 
 -- ============================================
--- АВТОПОИСК ФИНИША (через tower.top)
+-- АВТОПОИСК ФИНИША (самая высокая Finish-зона)
 -- ============================================
 local function findFinish()
     local tower = workspace:FindFirstChild("tower")
     if not tower then return nil end
     
-    -- Приоритет 1: top — верхняя платформа башни
-    local topPart = tower:FindFirstChild("top")
-    if topPart and topPart:IsA("BasePart") then
-        return topPart
-    end
-    
-    -- Приоритет 2: fallback на finishes
     local finishes = tower:FindFirstChild("finishes")
-    if finishes then
-        local best, bestY = nil, -math.huge
-        for _, obj in ipairs(finishes:GetChildren()) do
-            if obj:IsA("BasePart") and obj.Position.Y > bestY then
-                bestY = obj.Position.Y
-                best = obj
-            end
+    if not finishes then return nil end
+    
+    -- Ищем самую высокую Finish
+    local best, bestY = nil, -math.huge
+    for _, obj in ipairs(finishes:GetChildren()) do
+        if obj:IsA("BasePart") and obj.Position.Y > bestY then
+            bestY = obj.Position.Y
+            best = obj
         end
-        return best
     end
     
-    return nil
+    -- Fallback: top
+    if not best then
+        local topPart = tower:FindFirstChild("top")
+        if topPart and topPart:IsA("BasePart") then
+            return topPart
+        end
+    end
+    
+    return best
 end
 
 -- ============================================
--- ТЕЛЕПОРТ (с падением на платформу)
+-- ТЕЛЕПОРТ (точно в центр Finish)
 -- ============================================
 local function teleportToFinish()
     local finish = findFinish()
@@ -214,9 +215,9 @@ local function teleportToFinish()
     
     local char = player.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
-        -- Телепорт ВЫШЕ платформы, чтобы упасть точно на неё
-        char.HumanoidRootPart.CFrame = CFrame.new(finish.Position + Vector3.new(0, 15, 0))
-        char.HumanoidRootPart.Velocity = Vector3.new(0, -50, 0)
+        -- Телепорт прямо в центр Finish-зоны
+        char.HumanoidRootPart.CFrame = CFrame.new(finish.Position + Vector3.new(0, 3, 0))
+        char.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
         return true
     end
     return false
@@ -357,4 +358,4 @@ end)
 
 closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 
-print("[Tower TP] v6 загружен! Финиш: workspace.tower.top")
+print("[Tower TP] v7 загружен! Финиш: самая высокая Finish-зона")
