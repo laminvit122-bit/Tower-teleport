@@ -1,5 +1,5 @@
 -- ============================================
--- Tower of Hell Teleport Script v3
+-- Tower of Hell Teleport Script v4
 -- ============================================
 
 local Players = game:GetService("Players")
@@ -10,11 +10,13 @@ local CoreGui = game:GetService("CoreGui")
 local player = Players.LocalPlayer
 
 -- ============================================
--- КООРДИНАТЫ ТЕЛЕПОРТОВ
+-- ОДИНАКОВЫЕ КООРДИНАТЫ ДЛЯ ОБЕИХ БАШЕН
 -- ============================================
+local SHARED_POS = Vector3.new(-52.0, 319.2, -0.0)
+
 local teleports = {
-    ["Tower Noob"] = Vector3.new(24.1, 346.4, -56.9),
-    ["Tower Pro"]  = Vector3.new(-30.7, 687.9, 67.5),
+    ["Tower Noob"] = SHARED_POS,
+    ["Tower Pro"]  = SHARED_POS,
     ["The Tower"]  = nil,
 }
 
@@ -64,7 +66,7 @@ mainStroke.Thickness = 2
 mainStroke.Parent = mainFrame
 
 -- ============================================
--- МИНИ-КВАДРАТ (свёрнутое окно)
+-- МИНИ-КВАДРАТ
 -- ============================================
 local miniFrame = Instance.new("Frame")
 miniFrame.Name = "MiniFrame"
@@ -86,7 +88,6 @@ miniStroke.Color = Color3.fromRGB(255, 100, 100)
 miniStroke.Thickness = 2
 miniStroke.Parent = miniFrame
 
--- Картинка на квадрате
 local miniImage = Instance.new("ImageLabel")
 miniImage.Name = "MiniImage"
 miniImage.Size = UDim2.new(1, -6, 1, -6)
@@ -125,7 +126,6 @@ titleText.Font = Enum.Font.GothamBold
 titleText.TextXAlignment = Enum.TextXAlignment.Left
 titleText.Parent = titleBar
 
--- Кнопка "—"
 local minimizeBtn = Instance.new("TextButton")
 minimizeBtn.Name = "MinimizeBtn"
 minimizeBtn.Size = UDim2.new(0, 30, 0, 26)
@@ -143,7 +143,6 @@ local minBtnCorner = Instance.new("UICorner")
 minBtnCorner.CornerRadius = UDim.new(0, 6)
 minBtnCorner.Parent = minimizeBtn
 
--- Кнопка "×"
 local closeBtn = Instance.new("TextButton")
 closeBtn.Name = "CloseBtn"
 closeBtn.Size = UDim2.new(0, 30, 0, 26)
@@ -161,7 +160,6 @@ local closeBtnCorner = Instance.new("UICorner")
 closeBtnCorner.CornerRadius = UDim.new(0, 6)
 closeBtnCorner.Parent = closeBtn
 
--- Hover эффекты
 minimizeBtn.MouseEnter:Connect(function()
     minimizeBtn.BackgroundColor3 = Color3.fromRGB(110, 110, 130)
 end)
@@ -176,26 +174,37 @@ closeBtn.MouseLeave:Connect(function()
 end)
 
 -- ============================================
--- КОНТЕЙНЕР КНОПОК
+-- КОНТЕЙНЕР СКРОЛЛА (ScrollingFrame)
 -- ============================================
-local buttonHolder = Instance.new("Frame")
-buttonHolder.Name = "ButtonHolder"
-buttonHolder.Size = UDim2.new(1, -20, 1, -50)
-buttonHolder.Position = UDim2.new(0, 10, 0, 44)
-buttonHolder.BackgroundTransparency = 1
-buttonHolder.Parent = mainFrame
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Name = "ScrollFrame"
+scrollFrame.Size = UDim2.new(1, -20, 1, -50)
+scrollFrame.Position = UDim2.new(0, 10, 0, 44)
+scrollFrame.BackgroundTransparency = 1
+scrollFrame.BorderSizePixel = 0
+scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+scrollFrame.ScrollBarThickness = 4
+scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(255, 100, 100)
+scrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
+scrollFrame.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
+scrollFrame.Parent = mainFrame
 
 local layout = Instance.new("UIListLayout")
 layout.Padding = UDim.new(0, 10)
 layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = buttonHolder
+layout.Parent = scrollFrame
+
+-- Автообновление CanvasSize
+layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
+end)
 
 -- ============================================
 -- СОЗДАНИЕ КНОПКИ
 -- ============================================
 local function createButton(text, order, baseColor)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 44)
+    btn.Size = UDim2.new(1, -4, 0, 44)
     btn.BackgroundColor3 = baseColor
     btn.BorderSizePixel = 0
     btn.Text = text
@@ -204,7 +213,7 @@ local function createButton(text, order, baseColor)
     btn.Font = Enum.Font.GothamBold
     btn.LayoutOrder = order
     btn.AutoButtonColor = false
-    btn.Parent = buttonHolder
+    btn.Parent = scrollFrame
     
     local btnCorner = Instance.new("UICorner")
     btnCorner.CornerRadius = UDim.new(0, 8)
@@ -238,7 +247,7 @@ local function teleportTo(position)
 end
 
 -- ============================================
--- КНОПКИ ТЕЛЕПОРТА
+-- КНОПКИ
 -- ============================================
 local towerNoobBtn = createButton("Tower Noob", 1, Color3.fromRGB(60, 180, 80))
 towerNoobBtn.MouseButton1Click:Connect(function()
@@ -307,7 +316,6 @@ local function makeDraggable(frame, dragHandle)
                 startPos.X.Scale, startPos.X.Offset + delta.X,
                 startPos.Y.Scale, startPos.Y.Offset + delta.Y
             )
-            -- Запоминаем позицию
             frame:SetAttribute("SavedPos", frame.Position)
         end
     end)
@@ -317,7 +325,7 @@ makeDraggable(mainFrame, titleBar)
 makeDraggable(miniFrame, miniImage)
 
 -- ============================================
--- АНИМАЦИЯ + СВОРАЧИВАНИЕ / РАЗВОРАЧИВАНИЕ
+-- СВОРАЧИВАНИЕ
 -- ============================================
 local isMinimized = false
 local isAnimating = false
@@ -336,16 +344,12 @@ local function minimizeWindow()
     if isAnimating or isMinimized then return end
     isAnimating = true
 
-    -- Запоминаем позицию главного окна
     mainFrame:SetAttribute("SavedPos", mainFrame.Position)
-
-    -- Ставим квадрат на место главного окна
     miniFrame.Position = mainFrame.Position
 
-    -- Сжимаем главное окно в размер квадрата
     local goalSize = UDim2.new(MINI_SCALE, 0, MINI_SCALE * MINI_ASPECT, 0)
     titleBar.Visible = false
-    buttonHolder.Visible = false
+    scrollFrame.Visible = false
 
     local tween = animateFrame(mainFrame, goalSize, miniFrame.Position, 0.3)
     tween.Completed:Wait()
@@ -360,41 +364,34 @@ local function restoreWindow()
     if isAnimating or not isMinimized then return end
     isAnimating = true
 
-    -- Запоминаем позицию квадрата
     miniFrame:SetAttribute("SavedPos", miniFrame.Position)
 
-    -- Восстанавливаем позицию главного окна (или в текущую позицию квадрата)
     local savedMainPos = mainFrame:GetAttribute("SavedPos")
     if not savedMainPos then
         savedMainPos = miniFrame.Position
     end
 
-    -- Стартовое состояние главного окна = как квадрат
     mainFrame.Position = miniFrame.Position
     mainFrame.Size = UDim2.new(MINI_SCALE, 0, MINI_SCALE * MINI_ASPECT, 0)
     mainFrame.Visible = true
     titleBar.Visible = false
-    buttonHolder.Visible = false
+    scrollFrame.Visible = false
 
     miniFrame.Visible = false
 
-    -- Разворачиваем
     local goalSize = UDim2.new(MAIN_W_SCALE, 0, MAIN_H_SCALE, 0)
     local tween = animateFrame(mainFrame, goalSize, savedMainPos, 0.3)
     tween.Completed:Wait()
 
     titleBar.Visible = true
-    buttonHolder.Visible = true
+    scrollFrame.Visible = true
     isMinimized = false
     isAnimating = false
 end
 
--- Кнопка "—" — свернуть
-minimizeBtn.MouseButton1Click:Connect(function()
-    minimizeWindow()
-end)
+minimizeBtn.MouseButton1Click:Connect(minimizeWindow)
 
--- Клик по картинке на квадрате — развернуть
+-- Клик по квадрату
 local miniClickDetected = false
 local miniTouchStart = nil
 
@@ -410,7 +407,6 @@ miniImage.InputEnded:Connect(function(input)
     if not miniClickDetected then return end
     if input.UserInputType == Enum.UserInputType.MouseButton1
        or input.UserInputType == Enum.UserInputType.Touch then
-        -- Проверяем, что это был клик, а не перетаскивание
         local moved = 0
         if miniTouchStart then
             local delta = input.Position - miniTouchStart
@@ -425,11 +421,12 @@ miniImage.InputEnded:Connect(function(input)
 end)
 
 -- ============================================
--- УДАЛЕНИЕ СКРИПТА
+-- УДАЛЕНИЕ
 -- ============================================
 closeBtn.MouseButton1Click:Connect(function()
     screenGui:Destroy()
     print("[Tower TP] Скрипт выгружен")
 end)
 
-print("[Tower TP] Скрипт v3 загружен!")
+print("[Tower TP] Скрипт v4 загружен!")
+print("Обе башни: -52.0, 319.2, -0.0")
