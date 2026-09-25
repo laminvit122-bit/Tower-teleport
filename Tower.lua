@@ -1,6 +1,6 @@
 -- ============================================
--- Tower of Hell Teleport Script v5
--- С автопоиском финиша через tower.finishes
+-- Tower of Hell Teleport Script v6
+-- Автопоиск финиша через workspace.tower.top
 -- ============================================
 
 local Players = game:GetService("Players")
@@ -177,30 +177,36 @@ local function createButton(text, order, baseColor)
 end
 
 -- ============================================
--- АВТОПОИСК ФИНИША (обновлён под твою структуру)
+-- АВТОПОИСК ФИНИША (через tower.top)
 -- ============================================
 local function findFinish()
     local tower = workspace:FindFirstChild("tower")
     if not tower then return nil end
     
-    local finishes = tower:FindFirstChild("finishes")
-    if not finishes then return nil end
+    -- Приоритет 1: top — верхняя платформа башни
+    local topPart = tower:FindFirstChild("top")
+    if topPart and topPart:IsA("BasePart") then
+        return topPart
+    end
     
-    -- Ищем ВСЕ Finish и берём самый высокий по Y
-    local best, bestY = nil, -math.huge
-    for _, obj in ipairs(finishes:GetChildren()) do
-        if obj:IsA("BasePart") then
-            if obj.Position.Y > bestY then
+    -- Приоритет 2: fallback на finishes
+    local finishes = tower:FindFirstChild("finishes")
+    if finishes then
+        local best, bestY = nil, -math.huge
+        for _, obj in ipairs(finishes:GetChildren()) do
+            if obj:IsA("BasePart") and obj.Position.Y > bestY then
                 bestY = obj.Position.Y
                 best = obj
             end
         end
+        return best
     end
-    return best
+    
+    return nil
 end
 
 -- ============================================
--- ТЕЛЕПОРТ
+-- ТЕЛЕПОРТ (с падением на платформу)
 -- ============================================
 local function teleportToFinish()
     local finish = findFinish()
@@ -208,14 +214,16 @@ local function teleportToFinish()
     
     local char = player.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
-        char.HumanoidRootPart.CFrame = CFrame.new(finish.Position + Vector3.new(0, 5, 0))
+        -- Телепорт ВЫШЕ платформы, чтобы упасть точно на неё
+        char.HumanoidRootPart.CFrame = CFrame.new(finish.Position + Vector3.new(0, 15, 0))
+        char.HumanoidRootPart.Velocity = Vector3.new(0, -50, 0)
         return true
     end
     return false
 end
 
 -- ============================================
--- КНОПКИ (обе ведут на финиш)
+-- КНОПКИ
 -- ============================================
 local towerNoobBtn = createButton("Tower Noob", 1, Color3.fromRGB(60, 180, 80))
 towerNoobBtn.MouseButton1Click:Connect(function()
@@ -349,4 +357,4 @@ end)
 
 closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 
-print("[Tower TP] v5 загружен! Ищем финиш в workspace.tower.finishes")
+print("[Tower TP] v6 загружен! Финиш: workspace.tower.top")
