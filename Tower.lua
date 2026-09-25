@@ -1,5 +1,5 @@
 -- ============================================
--- Tower of Hell TP — 3 кнопки + телепорт на финиш
+-- Tower of Hell TP — без падения, телепорт в центр
 -- ============================================
 
 local Players = game:GetService("Players")
@@ -162,7 +162,7 @@ local function createButton(text, order, baseColor)
 end
 
 -- ============================================
--- ИЩЕТ ФИНИШ: самая высокая большая платформа в tower
+-- ИЩЕТ ФИНИШ: самая высокая большая платформа
 -- ============================================
 local function findFinish()
     local tower = workspace:FindFirstChild("tower")
@@ -184,14 +184,18 @@ local function findFinish()
     return best
 end
 
+-- ============================================
+-- ТЕЛЕПОРТ (без падения — точно в центр)
+-- ============================================
 local function teleportToFinish()
     local finish = findFinish()
     if not finish then return false end
 
     local char = player.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
-        char.HumanoidRootPart.CFrame = CFrame.new(finish.Position + Vector3.new(0, 5, 0))
-        char.HumanoidRootPart.Velocity = Vector3.new(0, -20, 0)
+        -- Телепорт ровно в центр платформы +3, БЕЗ скорости
+        char.HumanoidRootPart.CFrame = CFrame.new(finish.Position + Vector3.new(0, 3, 0))
+        char.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
         return true
     end
     return false
@@ -338,4 +342,4 @@ end)
 
 closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 
-print("[Tower TP] Загружен! 3 кнопки + телепорт на финиш")
+print("[Tower TP] Загружен! Без падения")
