@@ -1,6 +1,6 @@
 -- ============================================
--- Tower of Hell Teleport Script v7
--- Телепорт на самую высокую Finish-зону
+-- Tower of Hell Teleport Script v10
+-- Финиш = workspace.tower.center (большая платформа 80x80)
 -- ============================================
 
 local Players = game:GetService("Players")
@@ -10,9 +10,6 @@ local CoreGui = game:GetService("CoreGui")
 
 local player = Players.LocalPlayer
 
--- ============================================
--- РАЗМЕРЫ
--- ============================================
 local MAIN_W_SCALE = 0.30
 local MAIN_H_SCALE = 0.45
 local MINI_SCALE   = 0.10
@@ -20,7 +17,7 @@ local MINI_ASPECT  = 1.5
 local MINI_IMAGE_ID = "rbxassetid://139196736118392"
 
 -- ============================================
--- СОЗДАНИЕ GUI
+-- GUI
 -- ============================================
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "TowerTeleportGui"
@@ -29,7 +26,6 @@ screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.IgnoreGuiInset = true
 screenGui.Parent = CoreGui
 
--- Главное окно
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(MAIN_W_SCALE, 0, MAIN_H_SCALE, 0)
 mainFrame.Position = UDim2.new(0.05, 0, 0.15, 0)
@@ -38,7 +34,6 @@ mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
 mainFrame.ClipsDescendants = true
 mainFrame.Parent = screenGui
-
 Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
 
 local mainStroke = Instance.new("UIStroke")
@@ -46,7 +41,6 @@ mainStroke.Color = Color3.fromRGB(255, 100, 100)
 mainStroke.Thickness = 2
 mainStroke.Parent = mainFrame
 
--- Мини-квадрат
 local miniFrame = Instance.new("Frame")
 miniFrame.Size = UDim2.new(MINI_SCALE, 0, MINI_SCALE * MINI_ASPECT, 0)
 miniFrame.Position = UDim2.new(0.05, 0, 0.15, 0)
@@ -56,7 +50,6 @@ miniFrame.Active = true
 miniFrame.Visible = false
 miniFrame.ClipsDescendants = true
 miniFrame.Parent = screenGui
-
 Instance.new("UICorner", miniFrame).CornerRadius = UDim.new(0, 12)
 
 local miniStroke = Instance.new("UIStroke")
@@ -71,16 +64,13 @@ miniImage.BackgroundTransparency = 1
 miniImage.Image = MINI_IMAGE_ID
 miniImage.ScaleType = Enum.ScaleType.Fit
 miniImage.Parent = miniFrame
-
 Instance.new("UICorner", miniImage).CornerRadius = UDim.new(0, 10)
 
--- Верхняя панель
 local titleBar = Instance.new("Frame")
 titleBar.Size = UDim2.new(1, 0, 0, 36)
 titleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
 titleBar.BorderSizePixel = 0
 titleBar.Parent = mainFrame
-
 Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 12)
 
 local titleText = Instance.new("TextLabel")
@@ -94,7 +84,6 @@ titleText.Font = Enum.Font.GothamBold
 titleText.TextXAlignment = Enum.TextXAlignment.Left
 titleText.Parent = titleBar
 
--- Кнопка "—"
 local minimizeBtn = Instance.new("TextButton")
 minimizeBtn.Size = UDim2.new(0, 30, 0, 26)
 minimizeBtn.Position = UDim2.new(1, -70, 0, 5)
@@ -108,7 +97,6 @@ minimizeBtn.AutoButtonColor = false
 minimizeBtn.Parent = titleBar
 Instance.new("UICorner", minimizeBtn).CornerRadius = UDim.new(0, 6)
 
--- Кнопка "×"
 local closeBtn = Instance.new("TextButton")
 closeBtn.Size = UDim2.new(0, 30, 0, 26)
 closeBtn.Position = UDim2.new(1, -36, 0, 5)
@@ -127,7 +115,6 @@ minimizeBtn.MouseLeave:Connect(function() minimizeBtn.BackgroundColor3 = Color3.
 closeBtn.MouseEnter:Connect(function() closeBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80) end)
 closeBtn.MouseLeave:Connect(function() closeBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60) end)
 
--- Скролл-контейнер
 local scrollFrame = Instance.new("ScrollingFrame")
 scrollFrame.Size = UDim2.new(1, -20, 1, -50)
 scrollFrame.Position = UDim2.new(0, 10, 0, 44)
@@ -149,7 +136,6 @@ layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     scrollFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
 end)
 
--- Функция кнопки
 local function createButton(text, order, baseColor)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, -4, 0, 44)
@@ -177,37 +163,37 @@ local function createButton(text, order, baseColor)
 end
 
 -- ============================================
--- АВТОПОИСК ФИНИША (самая высокая Finish-зона)
+-- АВТОПОИСК ФИНИША (tower.center — большая платформа)
 -- ============================================
 local function findFinish()
     local tower = workspace:FindFirstChild("tower")
     if not tower then return nil end
     
-    local finishes = tower:FindFirstChild("finishes")
-    if not finishes then return nil end
-    
-    -- Ищем самую высокую Finish
-    local best, bestY = nil, -math.huge
-    for _, obj in ipairs(finishes:GetChildren()) do
-        if obj:IsA("BasePart") and obj.Position.Y > bestY then
-            bestY = obj.Position.Y
-            best = obj
-        end
+    -- 1) center — большая финишная платформа 80x80
+    local center = tower:FindFirstChild("center")
+    if center and center:IsA("BasePart") then
+        return center
     end
     
-    -- Fallback: top
-    if not best then
-        local topPart = tower:FindFirstChild("top")
-        if topPart and topPart:IsA("BasePart") then
-            return topPart
+    -- 2) Fallback: stop в steps (самый высокий)
+    local bestStop, bestY = nil, -math.huge
+    local steps = tower:FindFirstChild("steps")
+    if steps then
+        for _, obj in ipairs(steps:GetChildren()) do
+            if obj.Name == "stop" and obj:IsA("BasePart") and obj.Position.Y > bestY then
+                bestY = obj.Position.Y
+                bestStop = obj
+            end
         end
     end
+    if bestStop then return bestStop end
     
-    return best
+    -- 3) Fallback: top
+    return tower:FindFirstChild("top")
 end
 
 -- ============================================
--- ТЕЛЕПОРТ (точно в центр Finish)
+-- ТЕЛЕПОРТ (в центр платформы, сверху)
 -- ============================================
 local function teleportToFinish()
     local finish = findFinish()
@@ -215,9 +201,9 @@ local function teleportToFinish()
     
     local char = player.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
-        -- Телепорт прямо в центр Finish-зоны
-        char.HumanoidRootPart.CFrame = CFrame.new(finish.Position + Vector3.new(0, 3, 0))
-        char.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+        -- center — большая платформа, телепорт в её центр + немного вверх
+        char.HumanoidRootPart.CFrame = CFrame.new(finish.Position + Vector3.new(0, 5, 0))
+        char.HumanoidRootPart.Velocity = Vector3.new(0, -20, 0)
         return true
     end
     return false
@@ -352,10 +338,10 @@ miniImage.InputEnded:Connect(function(input)
             moved = math.abs(d.X) + math.abs(d.Y)
         end
         if moved < 10 then restoreWindow() end
-        miniClick, miniStart = false, nil
+        miniClick, miniStart = nil, nil
     end
 end)
 
 closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 
-print("[Tower TP] v7 загружен! Финиш: самая высокая Finish-зона")
+print("[Tower TP] v10 загружен! Финиш: workspace.tower.center")
